@@ -1,64 +1,125 @@
-/* common.h - shared by UI, Core and Logger (Scheduler Simulator).
- * Owner: Team Leader (Vinisha). Do NOT change alone - agree changes in the group. */
+/*
+ * common.h - shared contract for the OS process scheduler simulator
+ *
+ * Owner: Vinisha (Team Leader + IPC)
+ * Used by: UI (Rian), Core (Rajath), Logger (Student 3), ipc wrapper
+ *
+ * RULE: change this file only by agreement with the whole team.
+ *       Any change here means everyone must recompile.
+ *
+ * IPC technique: POSIX message queues (Linux only, link with -lrt).
+ *
+ *   UI  --/sched_cmd-->  Core  --/sched_log-->  Logger
+ *   UI  <--/sched_resp-- Core
+ */
+
 #ifndef COMMON_H
 #define COMMON_H
 
-#include <mqueue.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <stdio.h>
-#include <time.h>
+#include <stdint.h>
 
-/* Three POSIX message queues connect the three processes */
-#define Q_UI_TO_CORE  "/sched_ui_to_core"    /* UI   -> Core   : commands        */
-#define Q_CORE_TO_UI  "/sched_core_to_ui"    /* Core -> UI     : state / errors  */
-#define Q_CORE_TO_LOG "/sched_core_to_log"   /* Core -> Logger : log events      */
+/* ------------------------------------------------------------------ */
+/* Queue names (must start with '/')                                   */
+/* ------------------------------------------------------------------ */
+#define QUEUE_CMD   "/sched_cmd"    /* UI   -> Core   */
+#define QUEUE_RESP  "/sched_resp"   /* Core -> UI     */
+#define QUEUE_LOG   "/sched_log"    /* Core -> Logger */
 
-#define Q_MAXMSG   10
-#define PAYLOAD_SZ 256
+/* ------------------------------------------------------------------ */
+/* Limits                                                              */
+/* ------------------------------------------------------------------ */
+#define MAX_NAME_LEN     16     /* process name incl. '\0', e.g. "P1"  */
+#define MAX_TEXT_LEN     256    /* status / error / log text incl. '\0'*/
+#define MAX_PROCESSES    64     /* size of the Core process table      */
+#define MAX_BURST        1000   /* largest valid burst time            */
+#define MAX_QUANTUM      100    /* largest valid RR quantum            */
+#define DEFAULT_QUANTUM  2
 
+/*
+ * Queue depth. Linux lets unprivileged users set up to 10
+ * (see /proc/sys/fs/mqueue/msg_max). Do not raise without checking.
+ */
+#define MQ_MAX_MESSAGES  10
+#define MQ_PRIORITY      0      /* all messages equal priority (FIFO)  */
+
+/* ------------------------------------------------------------------ */
+/* Scheduling algorithms                                               */
+/* ------------------------------------------------------------------ */
 typedef enum {
-    CMD_ADD = 1,    /* UI -> Core   payload = "<name> <burst>"       e.g. "P1 5" */
-    CMD_ALGO,       /* UI -> Core   payload = "fcfs" | "sjf" | "rr"              */
-    CMD_QUANTUM,    /* UI -> Core   payload = time slice for Round Robin, e.g. "2" */
-    CMD_STEP,       /* UI -> Core   advance the simulation by one time unit      */
-    CMD_RUN,        /* UI -> Core   run until all processes finish               */
-    CMD_RESET,      /* UI -> Core   clear all processes and time                 */
-    CMD_STATUS,     /* UI -> Core   send the current state                       */
-    CMD_QUIT,       /* UI -> Core   shut everything down                         */
-    STATE_UPDATE,   /* Core -> UI   payload = text snapshot                      */
-    ERROR_MSG,      /* Core -> UI   payload = error description                  */
-    LOG_EVENT,      /* Core -> Log  normal event                                 */
-    LOG_ERROR,      /* Core -> Log  error event                                  */
-    LOG_QUIT        /* Core -> Log  logger should stop                           */
-} MsgType;
+    ALGO_FCFS = 0,
+    ALGO_SJF  = 1,
+    ALGO_RR   = 2
+} algo_t;
 
-/* Rule: every command from the UI (except CMD_QUIT) gets exactly ONE reply
- * (STATE_UPDATE or ERROR_MSG). The UI relies on this for its "wait" command. */
+/* ------------------------------------------------------------------ */
+/* Message types                                                       */
+/* ------------------------------------------------------------------ */
+typedef enum {
+    /* UI -> Core  (QUEUE_CMD) */
+    CMD_ADD     = 1,    /* payload.add      : "add P1 5"   */
+    CMD_ALGO    = 2,    /* payload.algo     : "algo rr"    */
+    CMD_QUANTUM = 3,    /* payload.quantum  : "quantum 2"  */
+    CMD_STEP    = 4,    /* no payload                      */
+    CMD_RUN     = 5,    /* no payload                      */
+    CMD_STATUS  = 6,    /* no payload                      */
+    CMD_RESET   = 7,    /* no payload                      */
+    CMD_QUIT    = 8,    /* no payload                      */
 
+    /* Core -> UI  (QUEUE_RESP) */
+    RESP_STATE  = 20,   /* payload.text : ready queue / timeline line */
+    RESP_ERROR  = 21,   /* payload.text : error message               */
+    RESP_END    = 22,   /* no payload   : last reply to a command     */
+
+    /* Core -> Logger  (QUEUE_LOG) */
+    EVT_START   = 40,   /* payload.event.proc                          */
+    EVT_SWITCH  = 41,   /* payload.event.proc (from), .next (to)       */
+    EVT_FINISH  = 42,   /* payload.event.proc, .waiting_time           */
+    EVT_ERROR   = 43,   /* payload.text -> errors.log                  */
+    EVT_STATS   = 44,   /* payload.text : final statistics line        */
+    EVT_QUIT    = 45    /* no payload   : Logger flushes and exits     */
+} msg_type_t;
+
+/* ------------------------------------------------------------------ */
+/* Message format (one struct for all three queues)                    */
+/* ------------------------------------------------------------------ */
 typedef struct {
-    int  type;                  /* MsgType */
-    char payload[PAYLOAD_SZ];
-    long timestamp;             /* seconds since epoch */
-} Message;
+    int32_t type;               /* a msg_type_t value                  */
+    int32_t seq;                /* sender's counter, for ordering/debug*/
 
-static inline mqd_t open_queue(const char *name, int flags)
-{
-    struct mq_attr attr;
-    memset(&attr, 0, sizeof(attr));
-    attr.mq_maxmsg  = Q_MAXMSG;
-    attr.mq_msgsize = sizeof(Message);
-    return mq_open(name, flags | O_CREAT, 0666, &attr);
-}
+    union {
+        struct {                /* CMD_ADD */
+            char    name[MAX_NAME_LEN];
+            int32_t burst;
+        } add;
 
-static inline void make_msg(Message *m, int type, const char *text)
-{
-    memset(m, 0, sizeof(*m));
-    m->type = type;
-    if (text) snprintf(m->payload, PAYLOAD_SZ, "%s", text);
-    m->timestamp = (long)time(NULL);
-}
+        struct {                /* CMD_ALGO */
+            int32_t id;         /* an algo_t value */
+        } algo;
 
-#endif
+        struct {                /* CMD_QUANTUM */
+            int32_t value;
+        } quantum;
 
+        struct {                /* EVT_START / EVT_SWITCH / EVT_FINISH */
+            char    proc[MAX_NAME_LEN];
+            char    next[MAX_NAME_LEN];   /* EVT_SWITCH only */
+            int32_t time;                 /* simulated clock */
+            int32_t waiting_time;         /* EVT_FINISH only */
+        } event;
+
+        char text[MAX_TEXT_LEN];          /* RESP_*, EVT_ERROR, EVT_STATS */
+    } payload;
+} message_t;
+
+#define MSG_SIZE ((long)sizeof(message_t))
+
+/* Catch accidental growth beyond Linux's default 8192-byte limit. */
+_Static_assert(sizeof(message_t) <= 8192, "message_t too large for mq_msgsize");
+
+/* ------------------------------------------------------------------ */
+/* Log files (Logger only)                                             */
+/* ------------------------------------------------------------------ */
+#define LOG_FILE_MAIN    "simulator.log"
+#define LOG_FILE_ERRORS  "errors.log"
+
+#endif /* COMMON_H */
