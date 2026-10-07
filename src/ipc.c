@@ -99,4 +99,10 @@ int ipc_recv_timeout(mqd_t q, message_t *m, int timeout_ms)
 {
     char buf[RECV_BUF_SIZE];
     struct timespec ts;
-    deadline_in(&ts,
+    deadline_in(&ts, timeout_ms);
+    ssize_t n;
+    do {
+        n = mq_timedreceive(q, buf, sizeof buf, NULL, &ts);
+    } while (n == -1 && errno == EINTR);
+    return finish_recv(n, buf, m);
+}
