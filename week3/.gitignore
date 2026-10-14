@@ -1,0 +1,26 @@
+# Compiled output
+scheduler
+scheduler.exe
+build/
+a.out
+*.exe
+*.out
+
+# Object / library files
+*.o
+*.obj
+*.a
+*.so
+*.dll
+*.dylib
+
+# Debug files
+*.dSYM/
+core
+*.log
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
