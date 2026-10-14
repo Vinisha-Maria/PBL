@@ -37,6 +37,8 @@ void compute_metrics(Process p[], int n, Gantt *g, Metrics *m)
         if (g->entries[i].pid != -1)
             busy += g->entries[i].end - g->entries[i].start;
     }
+    m->busy_time = busy;
+    m->idle_time = m->total_time - busy;
 
     /* --- 5. CPU utilisation = busy / total * 100 (guard: total == 0) --- */
     if (m->total_time > 0)
