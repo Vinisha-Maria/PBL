@@ -1,7 +1,7 @@
 /*
  * metrics.c - computes per-process and average performance metrics.
  */
-#include "scheduler.h"
+#include "common.h"
 
 void compute_metrics(Process p[], int n, Gantt *g, Metrics *m)
 {
