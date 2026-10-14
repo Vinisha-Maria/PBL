@@ -27,8 +27,11 @@ void add_gantt(Gantt *g, int pid, int start, int end)
     }
 
     /* Guard against overflowing the array. */
-    if (g->count >= MAX_GANTT) {
-        fprintf(stderr, "Warning: Gantt chart is full (%d entries); slice dropped.\n", MAX_GANTT);
+        if (g->count >= MAX_GANTT) {
+        if (!g->overflow) {
+            fprintf(stderr, "Warning: Gantt chart full; results may be inaccurate.\n");
+        }
+        g->overflow = 1;
         return;
     }
 
