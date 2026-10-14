@@ -16,7 +16,7 @@
  */
 
 #include <stddef.h>
-#include "scheduler.h"
+#include "common.h"
 
 /*
  * Adds every process whose arrival time is <= now and which has not
