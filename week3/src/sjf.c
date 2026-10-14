@@ -76,6 +76,9 @@ void sjf(Process p[], int n, Gantt *g, int preemptive)
         if (idx == -1) {
             // Nothing has arrived: CPU is idle until the next arrival.
             int t = next_arrival(p, n);
+            if (t == -1) {
+                break;      // nothing can ever arrive: stop safely
+            }
             add_gantt(g, -1, time, t);
             time = t;
             continue;
