@@ -1,4 +1,15 @@
-// common.h
+/*
+ * common.h - Shared contract for the CPU Process Scheduling Simulator.
+ *
+ * EVERY team member includes this file. Do NOT rename or change anything here
+ * without telling the whole team.
+ */
+#ifndef COMMON_H
+#define COMMON_H
+
+#include <stdio.h>
+#include <stdlib.h>
+
 #define MAX_PROCESSES 100
 #define MAX_GANTT 1000
 
@@ -33,3 +44,5 @@ void print_process_table(Process p[], int n);
 void print_gantt(Gantt *g);
 void print_metrics(Metrics *m);
 void print_comparison_table(Process p[], int n, int quantum);
+
+#endif /* COMMON_H */
