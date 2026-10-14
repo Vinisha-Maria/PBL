@@ -77,7 +77,7 @@ static void init_process_fields(Process *p)
 {
     p->remaining = p->burst;
     p->start_time = -1;
-    p->completion = 0;
+    p->completion = -1;
     p->waiting = 0;
     p->turnaround = 0;
     p->response = 0;
