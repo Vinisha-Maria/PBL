@@ -23,7 +23,7 @@ static void run_one(int which, Process src[], int n, int quantum, Metrics *m)
     for (i = 0; i < n; i++) {                        /* reset what schedulers expect */
         copy[i].remaining  = copy[i].burst;
         copy[i].start_time = -1;
-        copy[i].completion = 0;
+        copy[i].completion = -1;
         copy[i].waiting = copy[i].turnaround = copy[i].response = 0;
     }
     g.count = 0;
