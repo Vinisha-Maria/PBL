@@ -26,7 +26,7 @@ typedef struct { GanttEntry entries[MAX_GANTT]; int count; int overflow; } Gantt
 
 typedef struct {
     float avg_wt, avg_tat, avg_rt, cpu_util;
-    int total_time;
+    int total_time, busy_time, idle_time;
 } Metrics;
 
 // helper (in common.c, by Member 1): appends a slice; merges with previous if same pid
