@@ -45,7 +45,7 @@ static void make_fresh_copy(Process work[], const Process original[], int n)
     for (int i = 0; i < n; i++) {
         work[i].remaining = work[i].burst;
         work[i].start_time = -1;
-        work[i].completion = 0;
+        work[i].completion = -1;
         work[i].waiting = 0;
         work[i].turnaround = 0;
         work[i].response = 0;
