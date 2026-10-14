@@ -16,7 +16,6 @@
  * Build with: gcc -std=c99 -Wall -Wextra -c priority.c
  */
 
-#include <stddef.h>
 #include "common.h"
 
 /*
