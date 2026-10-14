@@ -3,7 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "commom.h"
+#include "common.h"
 
 #define NUM_ALGOS 6
 
