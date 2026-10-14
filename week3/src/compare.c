@@ -27,6 +27,7 @@ static void run_one(int which, Process src[], int n, int quantum, Metrics *m)
         copy[i].waiting = copy[i].turnaround = copy[i].response = 0;
     }
     g.count = 0;
+    g.overflow = 0;
 
     switch (which) {
     case 0: fcfs(copy, n, &g);                  break;
