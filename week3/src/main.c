@@ -67,6 +67,7 @@ static void run_algorithm(int choice, const Process original[], int n)
 
     make_fresh_copy(work, original, n);
     g.count = 0;
+    g.overflow = 0;
     memset(&m, 0, sizeof m);
 
     switch (choice) {
