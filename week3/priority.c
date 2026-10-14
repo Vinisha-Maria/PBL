@@ -17,7 +17,7 @@
  */
 
 #include <stddef.h>
-#include "scheduler.h"
+#include "common.h"
 
 /*
  * Returns the index of the best ready process at the given time,
