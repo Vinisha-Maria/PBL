@@ -24,7 +24,7 @@ void fcfs(Process p[], int n, Gantt *g)
     for (i = 0; i < n; i++) {
         p[i].remaining = p[i].burst;
         p[i].start_time = -1;
-        p[i].completion = 0;
+        p[i].completion = -1;
         order[i] = i; // initially in input order
     }
 
