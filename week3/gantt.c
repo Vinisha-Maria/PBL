@@ -3,7 +3,7 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "scheduler.h"
+#include "common.h"
 
 #define LINE_WIDTH 60    /* start a new chart line after about this many chars */
 #define BUF_SIZE   256   /* big enough for one chart line */
