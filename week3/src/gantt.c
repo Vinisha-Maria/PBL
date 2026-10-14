@@ -87,7 +87,11 @@ void print_gantt(Gantt *g)
         col += w + 1;                                /* move past the box  */
     }
 
-    flush_line(top, bot, col, g->entries[g->count - 1].end);
+        flush_line(top, bot, col, g->entries[g->count - 1].end);
+
+    if (g->overflow) {
+        printf("(Chart truncated: too many slices. Metrics may be inaccurate.)\n");
+    }
 }
 
 void print_process_table(Process p[], int n)
@@ -107,15 +111,12 @@ void print_process_table(Process p[], int n)
 void print_metrics(Metrics *m)
 {
     int filled, i;
-    /* idle = total - busy; busy = total * util / 100 (rounded to whole units) */
-    int busy = (int)((float)m->total_time * m->cpu_util / 100.0f + 0.5f);
-    int idle = m->total_time - busy;
-
+   
     printf("Average Waiting Time    : %.2f\n", m->avg_wt);
     printf("Average Turnaround Time : %.2f\n", m->avg_tat);
     printf("Average Response Time   : %.2f\n", m->avg_rt);
     printf("Total Time              : %d\n", m->total_time);
-    printf("Idle Time               : %d\n", idle);
+    printf("Idle Time               : %d\n", m->idle_time);
     printf("CPU Utilization         : %.2f%%\n", m->cpu_util);
 
     /* text bar: '#' for used part, '-' for the rest */
