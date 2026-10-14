@@ -15,16 +15,15 @@
  * Build with: gcc -std=c99 -Wall -Wextra -c rr.c
  */
 
-#include <stddef.h>
 #include "common.h"
 
 /*
  * Adds every process whose arrival time is <= now and which has not
- * already been enqueued. Arrivals are added in pid order so results are
+ * already been enqueued. Arrivals are added in array order so results are
  * deterministic when several processes arrive at the same instant.
  */
 static void enqueue_new_arrivals(Process p[], int n,
-                                 int queue[], int *front, int *rear,
+                                 int queue[], int *rear,
                                  int *size, int enqueued[], int now)
 {
     for (int i = 0; i < n; i++) {
@@ -66,7 +65,7 @@ void round_robin(Process p[], int n, Gantt *g, int quantum)
     int now = 0;
 
     /* Put any process that has already arrived at time 0 into the queue. */
-    enqueue_new_arrivals(p, n, queue, &front, &rear, &size, enqueued, now);
+    enqueue_new_arrivals(p, n, queue, &rear, &size, enqueued, now);
 
     while (completed < n) {
         /*
@@ -95,7 +94,7 @@ void round_robin(Process p[], int n, Gantt *g, int quantum)
             add_gantt(g, -1, now, next);
             now = next;
 
-            enqueue_new_arrivals(p, n, queue, &front, &rear,
+            enqueue_new_arrivals(p, n, queue, &rear,
                                  &size, enqueued, now);
             continue;
         }
@@ -132,7 +131,7 @@ void round_robin(Process p[], int n, Gantt *g, int quantum)
          * These arrivals must be placed in the queue before the current
          * process is put back.
          */
-        enqueue_new_arrivals(p, n, queue, &front, &rear,
+        enqueue_new_arrivals(p, n, queue, &rear,
                              &size, enqueued, now);
 
         if (p[current].remaining > 0) {
