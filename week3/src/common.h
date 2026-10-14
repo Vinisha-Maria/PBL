@@ -22,7 +22,7 @@ typedef struct {
 } Process;
 
 typedef struct { int pid; int start; int end; } GanttEntry;   // pid = -1 means CPU idle
-typedef struct { GanttEntry entries[MAX_GANTT]; int count; } Gantt;
+typedef struct { GanttEntry entries[MAX_GANTT]; int count; int overflow; } Gantt;
 
 typedef struct {
     float avg_wt, avg_tat, avg_rt, cpu_util;
