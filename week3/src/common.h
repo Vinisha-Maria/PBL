@@ -17,7 +17,7 @@ typedef struct {
     int pid, arrival, burst, priority;   // input (lower priority number = higher priority)
     int remaining;                       // working copy of burst
     int start_time;                      // first time CPU is given (-1 if not yet)
-    int completion;                      // completion time
+    int completion;                      // completion time (-1 if not finished)
     int waiting, turnaround, response;   // computed by metrics.c
 } Process;
 
