@@ -5,8 +5,7 @@
 #include "../src/core/detection.h"
 #include "../src/core/recovery.h"
 
-void state_subscribe(StateListener cb, void *user_data) { (void)cb; (void)user_data; }
-void state_notify(void) {}
+
 
 void test_no_deadlock() {
     SystemState s;
@@ -36,9 +35,10 @@ void test_partial_deadlock() {
     SystemState s;
     state_init(&s);
     s.n_proc = 3; s.n_res = 2;
-    s.total[0] = 2; s.total[1] = 2;
+    s.total[0] = 1; s.total[1] = 1;
     s.allocation[0][0] = 1; s.requests[0][1] = 1;
     s.allocation[1][1] = 1; s.requests[1][0] = 1;
+    /* P2 has nothing - not involved in deadlock */
     DetectionResult res = detect_deadlock(&s);
     assert(res.deadlocked == true);
     assert(res.n_deadlocked == 2);

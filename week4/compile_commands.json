@@ -1,0 +1,62 @@
+﻿[
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/main.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/main.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/core/analysis.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/core/analysis.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/core/bankers.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/core/bankers.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/core/detection.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/core/detection.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/core/recovery.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/core/recovery.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/core/state.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/core/state.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/gui/app.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/gui/app.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/gui/banker_tab.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/gui/banker_tab.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/gui/detection_tab.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/gui/detection_tab.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/gui/rag_tab.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/gui/rag_tab.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/gui/setup_tabs.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/gui/setup_tabs.c"
+    },
+    {
+        "directory":  "C:/PBL/week4",
+        "file":  "C:/PBL/week4/src/gui/status_tab.c",
+        "command":  "C:/msys64/ucrt64/bin/gcc.exe -std=c11 -Wall -Wextra -Isrc -Isrc/core -Isrc/gui -c C:/PBL/week4/src/gui/status_tab.c"
+    }
+]
