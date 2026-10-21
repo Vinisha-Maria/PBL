@@ -1,1 +1,13 @@
+# Build output
+build/
+*.o
+*.d
+*.exe
+deadlock_sim
 
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
