@@ -1,4 +1,4 @@
-/* Tests for core/state.c (owner: Team Lead). Run with: make test */
+
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
