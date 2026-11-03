@@ -1,1 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Replacement Simulator</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <header class="app-header">
+      <h1>Page Replacement Simulator</h1>
+      <p class="subtitle">Visualize and compare OS page replacement algorithms</p>
+    </header>
 
+    <!-- Error Banner -->
+    <div id="error-box" class="error-box hidden" role="alert"></div>
+
+    <!-- Input Card -->
+    <main class="card input-card">
+      <h2>Simulation Parameters</h2>
+      
+      <div class="form-group">
+        <label for="reference-input">Page Reference String</label>
+        <input 
+          type="text" 
+          id="reference-input" 
+          placeholder="7 0 1 2 0 3 0 4 2 3" 
+          autocomplete="off"
+        >
+        <small class="help-text">Enter numbers separated by spaces or commas</small>
+      </div>
+
+      <div class="form-group">
+        <label for="frames-input">Number of Frames (1 to 10)</label>
+        <input 
+          type="number" 
+          id="frames-input" 
+          min="1" 
+          max="10" 
+          value="3"
+        >
+      </div>
+
+      <div class="form-group">
+        <label>Algorithm Selection</label>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="algorithm" value="fifo"> FIFO
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="algorithm" value="lru"> LRU
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="algorithm" value="optimal"> Optimal
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="algorithm" value="all" checked> Compare All
+          </label>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button id="btn-simulate" class="btn btn-primary">Simulate</button>
+        <button id="btn-sample" class="btn btn-secondary">Load Sample</button>
+        <button id="btn-clear" class="btn btn-outline">Clear</button>
+      </div>
+    </main>
+
+    <!-- Simulation Results Container -->
+    <div id="results-container"></div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
