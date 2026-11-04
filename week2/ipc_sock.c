@@ -1,199 +1,148 @@
-#define _GNU_SOURCE
-#include "ipc_sock.h"
-
-#include <errno.h>
-#include <poll.h>
-#include <pthread.h>
-#include <signal.h>
+#include "ipc_shm.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/un.h>
-#include <time.h>
 #include <unistd.h>
+#include <semaphore.h>
+#include <errno.h>
 
-static long now_ms(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
-}
+#define SHM_NAME "/sim_state"
+#define SEM_NAME "/sim_state_lock"
 
-static void make_addr(struct sockaddr_un *a)
-{
-    memset(a, 0, sizeof *a);
-    a->sun_family = AF_UNIX;
-    strncpy(a->sun_path, SIM_CTRL_PATH, sizeof a->sun_path - 1);
-}
+static int shm_fd = -1;
+static struct sim_state *shared_state_ptr = (void *)-1;
+static sem_t *state_sem = SEM_FAILED;
 
-/* Wait until fd is readable. 1 = readable, 0 = timeout, -1 = error. */
-static int wait_readable(int fd, long deadline_ms)
-{
-    for (;;) {
-        long left = deadline_ms - now_ms();
-        if (left < 0) left = 0;
-        struct pollfd p = { .fd = fd, .events = POLLIN };
-        int r = poll(&p, 1, (int)left);
-        if (r > 0) return 1;
-        if (r == 0) return 0;
-        if (errno != EINTR) return -1;
-    }
-}
+int shm_state_create(void) {
+    /* Clean up any stale instances from previous crashed runs */
+    shm_unlink(SHM_NAME);
+    sem_unlink(SEM_NAME);
 
-int sock_ctrl_server_start(void)
-{
-    struct sockaddr_un a;
-    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-    if (fd < 0) return -1;
-
-    make_addr(&a);
-    unlink(SIM_CTRL_PATH);                       /* remove stale socket file */
-    if (bind(fd, (struct sockaddr *)&a, sizeof a) < 0 || listen(fd, 8) < 0) {
-        int e = errno;
-        close(fd);
-        unlink(SIM_CTRL_PATH);
-        errno = e;
+    shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
+    if (shm_fd == -1) {
+        perror("shm_state_create: shm_open");
         return -1;
     }
-    chmod(SIM_CTRL_PATH, 0600);
-    return fd;
-}
 
-int sock_ctrl_accept(int server_fd, char *name, size_t name_size, int timeout_ms)
-{
-    long deadline = now_ms() + timeout_ms;
-    int r = wait_readable(server_fd, deadline);
-    if (r == 0) { errno = ETIMEDOUT; return -1; }
-    if (r < 0) return -1;
-
-    int fd = accept4(server_fd, NULL, NULL, SOCK_CLOEXEC);
-    if (fd < 0) return -1;
-
-    char line[CTRL_MSG_MAX];
-    int n = sock_ctrl_recv(fd, line, sizeof line, (int)(deadline - now_ms() > 0 ? deadline - now_ms() : 1));
-    if (n <= 0 || strncmp(line, "HELLO ", 6) != 0) {
-        close(fd);
-        errno = (n == 0) ? ETIMEDOUT : EPROTO;
+    if (ftruncate(shm_fd, sizeof(struct sim_state)) == -1) {
+        perror("shm_state_create: ftruncate");
+        close(shm_fd);
+        shm_fd = -1;
         return -1;
     }
-    if (name && name_size) {
-        strncpy(name, line + 6, name_size - 1);
-        name[name_size - 1] = '\0';
+
+    shared_state_ptr = mmap(NULL, sizeof(struct sim_state), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shared_state_ptr == MAP_FAILED) {
+        perror("shm_state_create: mmap");
+        close(shm_fd);
+        shm_fd = -1;
+        return -1;
     }
-    return fd;
+
+    state_sem = sem_open(SEM_NAME, O_CREAT | O_RDWR, 0666, 1);
+    if (state_sem == SEM_FAILED) {
+        perror("shm_state_create: sem_open");
+        munmap(shared_state_ptr, sizeof(struct sim_state));
+        close(shm_fd);
+        shared_state_ptr = (void *)-1;
+        shm_fd = -1;
+        return -1;
+    }
+
+    memset(shared_state_ptr, 0, sizeof(struct sim_state));
+    return 0;
 }
 
-int sock_ctrl_client_connect(const char *name)
-{
-    struct sockaddr_un a;
-    make_addr(&a);
-
-    for (int attempt = 0; attempt < 20; attempt++) {     /* up to ~2 s */
-        int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
-        if (fd < 0) return -1;
-        if (connect(fd, (struct sockaddr *)&a, sizeof a) == 0) {
-            char msg[CTRL_MSG_MAX];
-            snprintf(msg, sizeof msg, "HELLO %s", name);
-            if (sock_ctrl_send(fd, msg) < 0) { close(fd); return -1; }
-            return fd;
-        }
-        int e = errno;
-        close(fd);
-        if (e != ENOENT && e != ECONNREFUSED) { errno = e; return -1; }
-        usleep(100 * 1000);
+int shm_state_open(void) {
+    shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
+    if (shm_fd == -1) {
+        /* If UI or Core starts first and SHM isn't created yet, create it */
+        return shm_state_create();
     }
-    errno = ECONNREFUSED;
-    return -1;
+
+    shared_state_ptr = mmap(NULL, sizeof(struct sim_state), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shared_state_ptr == MAP_FAILED) {
+        perror("shm_state_open: mmap");
+        close(shm_fd);
+        shm_fd = -1;
+        return -1;
+    }
+
+    state_sem = sem_open(SEM_NAME, O_RDWR, 0666);
+    if (state_sem == SEM_FAILED) {
+        perror("shm_state_open: sem_open");
+        munmap(shared_state_ptr, sizeof(struct sim_state));
+        close(shm_fd);
+        shared_state_ptr = (void *)-1;
+        shm_fd = -1;
+        return -1;
+    }
+
+    return 0;
 }
 
-int sock_ctrl_send(int fd, const char *msg)
-{
-    char line[CTRL_MSG_MAX + 2];
-    size_t len = strlen(msg);
-    if (len > CTRL_MSG_MAX - 1) { errno = EMSGSIZE; return -1; }
-    memcpy(line, msg, len);
-    line[len++] = '\n';
+int shm_publish_state(const struct sim_state *st) {
+    if (shared_state_ptr == (void *)-1 || state_sem == SEM_FAILED) {
+        errno = EINVAL;
+        return -1;
+    }
 
-    size_t off = 0;
-    while (off < len) {
-        ssize_t w = send(fd, line + off, len - off, MSG_NOSIGNAL);
-        if (w < 0) { if (errno == EINTR) continue; return -1; }
-        off += (size_t)w;
+    while (sem_wait(state_sem) == -1) {
+        if (errno == EINTR) continue; /* Handle interrupted system call */
+        return -1;
+    }
+
+    memcpy(shared_state_ptr, st, sizeof(struct sim_state));
+
+    if (sem_post(state_sem) == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int shm_read_state(struct sim_state *st) {
+    if (shared_state_ptr == (void *)-1 || state_sem == SEM_FAILED) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    while (sem_wait(state_sem) == -1) {
+        if (errno == EINTR) continue;
+        return -1;
+    }
+
+    memcpy(st, shared_state_ptr, sizeof(struct sim_state));
+
+    if (sem_post(state_sem) == -1) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int shm_state_close(void) {
+    if (shared_state_ptr != (void *)-1) {
+        munmap(shared_state_ptr, sizeof(struct sim_state));
+        shared_state_ptr = (void *)-1;
+    }
+    if (shm_fd != -1) {
+        close(shm_fd);
+        shm_fd = -1;
+    }
+    if (state_sem != SEM_FAILED) {
+        sem_close(state_sem);
+        state_sem = SEM_FAILED;
     }
     return 0;
 }
 
-int sock_ctrl_recv(int fd, char *buf, size_t size, int timeout_ms)
-{
-    long deadline = now_ms() + timeout_ms;
-    size_t n = 0;
-
-    if (size < 2) { errno = EINVAL; return -1; }
-    for (;;) {
-        int r = wait_readable(fd, deadline);
-        if (r == 0) return 0;                    /* timeout */
-        if (r < 0) return -1;
-
-        char c;
-        ssize_t got = recv(fd, &c, 1, 0);
-        if (got == 0) { errno = ECONNRESET; return -1; }   /* peer closed */
-        if (got < 0) { if (errno == EINTR) continue; return -1; }
-
-        if (c == '\n') {
-            if (n == 0) continue;                /* ignore empty lines */
-            buf[n] = '\0';
-            return (int)n;
-        }
-        if (n < size - 1) buf[n++] = c;          /* longer lines are truncated */
-    }
-}
-
-void sock_ctrl_close(int fd)
-{
-    if (fd >= 0) close(fd);
-}
-
-void sock_ctrl_unlink(void)
-{
-    unlink(SIM_CTRL_PATH);
-}
-
-/* ---------- responder thread (PING -> PONG, SHUTDOWN -> callback) ---------- */
-
-struct responder_arg { int fd; void (*on_shutdown)(void); };
-
-static void *responder_main(void *p)
-{
-    struct responder_arg a = *(struct responder_arg *)p;
-    free(p);
-    char msg[CTRL_MSG_MAX];
-
-    for (;;) {
-        int n = sock_ctrl_recv(a.fd, msg, sizeof msg, 1000);
-        if (n == 0) continue;
-        if (n < 0) break;                        /* launcher gone -> treat as shutdown */
-        if (strcmp(msg, "PING") == 0) {
-            if (sock_ctrl_send(a.fd, "PONG") < 0) break;
-        } else if (strcmp(msg, "SHUTDOWN") == 0) {
-            break;
-        }
-    }
-    if (a.on_shutdown) a.on_shutdown();
-    else raise(SIGTERM);
-    return NULL;
-}
-
-int sock_ctrl_start_responder(int fd, void (*on_shutdown)(void))
-{
-    struct responder_arg *a = malloc(sizeof *a);
-    pthread_t t;
-    if (!a) return -1;
-    a->fd = fd;
-    a->on_shutdown = on_shutdown;
-    int rc = pthread_create(&t, NULL, responder_main, a);
-    if (rc != 0) { free(a); errno = rc; return -1; }
-    pthread_detach(t);
+int shm_state_unlink(void) {
+    shm_state_close();
+    shm_unlink(SHM_NAME);
+    sem_unlink(SEM_NAME);
     return 0;
 }
