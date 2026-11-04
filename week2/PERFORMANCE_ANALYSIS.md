@@ -35,7 +35,7 @@ Run `make bench` on the final build, on the same machine, with nothing else runn
 ## README outline for the GitHub update
 
 1. Project title and one-paragraph summary
-2. Team and roles (UI: Rian, Core: Varun, Logging: Rajath, Integration: Mia)
+2. Team and roles (UI: Rian, Core: Varun, Logging: Rajath, Integration: Vinisha)
 3. Architecture: IPC diagram (from `ARCHITECTURE.md`) and the table of channels
 4. IPC mechanisms and justification (one short paragraph per member)
 5. Shared interfaces (`sim_types.h`, control protocol)
