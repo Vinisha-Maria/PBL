@@ -1,61 +1,66 @@
-# Makefile - OS process scheduler simulator (POSIX message queues, Linux only)
-#
-#   make              build bin/ui, bin/core, bin/logger
-#   make run          build and start all three (see run.sh --help)
-#   make clean        remove build/ and bin/
-#   make clean-ipc    remove stale message queues left by a crashed run
-#   make clean-logs   remove simulator.log, errors.log and run/
-#   make distclean    all of the above
+CC      = gcc
+CFLAGS  = -Wall -Wextra -pthread -g -O2
+LDLIBS  = -lrt -pthread
 
-# Recipe lines start with ">" instead of a Tab, so copy/paste cannot break it.
-.RECIPEPREFIX := >
+MODS_ALL = ipc_mq.c ipc_shm.c ipc_fifo.c ipc_sock.c
+HDRS     = $(wildcard *.h)
 
-CC      := gcc
-CFLAGS  := -std=gnu11 -Wall -Wextra -O2 -g -Iinclude
-LDFLAGS := -pthread
-LDLIBS  := -lrt
+# Members' own unit tests: name them test_ipc_<anything>.c and `make test` picks them up.
+TEST_SRCS = $(wildcard test_ipc_*.c)
+TEST_BINS = $(TEST_SRCS:.c=)
 
-SRC     := src
-BUILD   := build
-BIN     := bin
+MOCKS = mock/logger_process mock/core_process mock/ui_process
 
-PROGS   := ui core logger
-TARGETS := $(addprefix $(BIN)/,$(PROGS))
+.PHONY: all run test bench mock mocktest clean
 
-.PHONY: all run clean clean-ipc clean-logs distclean $(PROGS)
+all: logger_process core_process ui_process sim_launcher test_sock bench_ipc bench_runner $(TEST_BINS)
 
-all: $(TARGETS)
+logger_process: logger_process.c ipc_fifo.c ipc_sock.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ logger_process.c ipc_fifo.c ipc_sock.c $(LDLIBS)
 
-# Convenience aliases: `make core` etc.
-$(PROGS): %: $(BIN)/%
+core_process: core_process.c ipc_mq.c ipc_shm.c ipc_fifo.c ipc_sock.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ core_process.c ipc_mq.c ipc_shm.c ipc_fifo.c ipc_sock.c $(LDLIBS)
 
-# Every program links with the shared IPC wrapper.
-$(BIN)/%: $(BUILD)/%.o $(BUILD)/ipc.o | $(BIN)
-> $(CC) $(LDFLAGS) $^ -o $@ $(LDLIBS)
+ui_process: ui_process.c ipc_mq.c ipc_shm.c ipc_sock.c $(HDRS)
+	$(CC) $(CFLAGS) -o $@ ui_process.c ipc_mq.c ipc_shm.c ipc_sock.c $(LDLIBS)
 
-# -MMD/-MP track header dependencies, so editing common.h or ipc.h
-# rebuilds everything that includes it.
-$(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
-> $(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+sim_launcher: sim_launcher.c ipc_sock.c ipc_sock.h
+	$(CC) $(CFLAGS) -o $@ sim_launcher.c ipc_sock.c $(LDLIBS)
 
-$(BUILD) $(BIN):
-> mkdir -p $@
+test_sock: test_sock.c ipc_sock.c ipc_sock.h
+	$(CC) $(CFLAGS) -o $@ test_sock.c ipc_sock.c $(LDLIBS)
 
-# Keep the .o files so a rebuild only recompiles what changed.
-.SECONDARY:
+test_ipc_%: test_ipc_%.c $(MODS_ALL) $(HDRS)
+	$(CC) $(CFLAGS) -o $@ $< $(MODS_ALL) $(LDLIBS)
 
+bench_ipc: bench_ipc.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
+
+bench_runner: bench_runner.c
+	$(CC) $(CFLAGS) -o $@ $< $(LDLIBS)
+
+# ---- mock processes: test launcher/control channel before the real modules exist ----
+mock: $(MOCKS)
+mock/%_process: mock_process.c ipc_sock.c ipc_sock.h
+	mkdir -p mock
+	$(CC) $(CFLAGS) -o $@ mock_process.c ipc_sock.c $(LDLIBS)
+
+mocktest: mock sim_launcher test_sock
+	./test_sock
+	MODE=mock ./test_integration.sh
+
+# ---- main targets ----
 run: all
-> ./run.sh
+	./sim_launcher
+
+test: all
+	./test_sock
+	@for t in $(TEST_BINS); do echo "== $$t"; ./$$t || exit 1; done
+	./test_integration.sh
+
+bench: all
+	./bench.sh 10 100000
 
 clean:
-> rm -rf $(BUILD) $(BIN)
-
-clean-ipc:
-> rm -f /dev/mqueue/sched_cmd /dev/mqueue/sched_resp /dev/mqueue/sched_log
-
-clean-logs:
-> rm -rf simulator.log errors.log run
-
-distclean: clean clean-ipc clean-logs
-
--include $(wildcard $(BUILD)/*.d)
+	rm -rf logger_process core_process ui_process sim_launcher test_sock bench_ipc bench_runner mock $(TEST_BINS) *.o
+	rm -f results_*.csv results_overhead.txt
