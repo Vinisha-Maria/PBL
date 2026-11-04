@@ -4,6 +4,6 @@
 #include <gtk/gtk.h>
 #include "../core/state.h"
 GtkWidget *detection_tab_new(SystemState *state);
-GtkWidget *recovery_tab_new(SysyemState *state);
+GtkWidget *recovery_tab_new(SystemState *state);
 
 #endif
