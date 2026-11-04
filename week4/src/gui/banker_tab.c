@@ -284,7 +284,7 @@ static void populate_combo(RequestTab *t)
     g_signal_handlers_unblock_by_func(c, G_CALLBACK(on_combo_changed), t);
 }
 
-
+static void rebuild_inputs(RunTab *t)
 {
     const int m = clamp_count(t->state->n_res, MAX_RES);
     container_clear(GTK_CONTAINER(t->input_grid));
@@ -801,7 +801,7 @@ static void show_verdict(RunTab *t)
     g_string_free(log, TRUE);
 }
 
-
+static gboolean do_run(RunTab *t)
 {
     stop_play(t);
     if (t->state->n_proc <= 0 || t->state->n_res <= 0) {
