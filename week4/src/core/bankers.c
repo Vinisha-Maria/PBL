@@ -7,21 +7,6 @@
 
 #define VEC_LEN 128 /* room for "[a,b,c,...]" with 10 numbers */
 
-
-#if defined(__GNUC__)
-__attribute__((format(printf, 3, 4)))
-#endif
-static void add_line(char lines[MAX_LINES][LINE_LEN], int *count, const char *fmt, ...)
-{
-    if (*count < 0 || *count >= MAX_LINES) return;
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(lines[*count], LINE_LEN, fmt, ap);
-    va_end(ap);
-    (*count)++;
-}
-
-
 static void format_vec(char *buf, size_t len, const int *v, int n)
 {
     size_t pos = 0;
