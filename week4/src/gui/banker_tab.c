@@ -284,7 +284,7 @@ static void populate_combo(RequestTab *t)
     g_signal_handlers_unblock_by_func(c, G_CALLBACK(on_combo_changed), t);
 }
 
-static void rebuild_inputs(RunTab *t)
+static void rebuild_inputs(RequestTab *t)
 {
     const int m = clamp_count(t->state->n_res, MAX_RES);
     container_clear(GTK_CONTAINER(t->input_grid));
