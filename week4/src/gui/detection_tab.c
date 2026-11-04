@@ -212,7 +212,7 @@ static void on_recover_clicked(GtkButton *btn, gpointer user_data) {
     } else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w->radio_term_one))) {
         res = recover_terminate_one_by_one(s);
     } else {
-        char *active_id = gtk_combo_box_text_get_active_id(w->combo_victim);
+        const char *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(w->combo_victim));
         int victim = active_id ? atoi(active_id) : 0;
         if (active_id) g_free(active_id);
         res = recover_preempt(s, victim);
