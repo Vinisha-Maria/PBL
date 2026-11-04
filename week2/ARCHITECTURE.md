@@ -9,7 +9,7 @@ Draw **three big boxes side by side**, plus one box on top and the launcher/cont
 | **UI Process** (Rian) | main thread: user input -> commands; display thread: reads state and refreshes screen |
 | **Core Process** (Varun) | command thread; execution thread running **CPU / Memory / Stack / Queue** |
 | **Logging Process** (Rajath) | reader thread (FIFO -> buffer); writer thread (buffer -> `sim_execution.log`, `sim_error.log`) |
-| **sim_launcher** (Mia) | starts Logger -> Core -> UI, sends PING, sends SHUTDOWN, final cleanup |
+| **sim_launcher** (Vinisha) | starts Logger -> Core -> UI, sends PING, sends SHUTDOWN, final cleanup |
 
 Arrows (always label name + technique + direction + data format):
 
