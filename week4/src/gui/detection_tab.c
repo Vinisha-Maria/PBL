@@ -10,7 +10,7 @@ typedef struct {
     GtkWidget *banner;
     GtkWidget *status_label;
     GtkWidget *log_textview;
-    GtkWidget req_entries[MAX_PROC][MAX_RES];
+    GtkWidget *req_entries[MAX_PROC][MAX_RES];
     GtkWidget *frame_req;
     GtkWidget *grid_req;
     int shown_n_proc;
@@ -271,9 +271,8 @@ static void on_recover_clicked(GtkButton *btn, gpointer user_data) {
     } else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w->radio_term_one))) {
         res = recover_terminate_one_by_one(s);
     } else {
-        gchar *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(w->combo_victim));
+       const gchar *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(w->combo_victim));
         int victim = active_id ? atoi(active_id) : 0;
-        if (active_id) g_free(active_id);
         res = recover_preempt(s, victim);
     }
 
