@@ -108,7 +108,7 @@ void *command_thread_func(void *arg) {
     log_write("INFO", "CORE", "Command thread started");
 
     while (keep_running) {
-        if (mq_cmd_receive(&cmd) == -1) {
+        if (mq_cmd_receive(&cmd, 100) == -1) {
             if (errno == EINTR) continue;
             usleep(10000);
             continue;
@@ -175,10 +175,10 @@ int main(void) {
     sigaction(SIGINT, &sa, NULL);
 
     /* Initialize subsystems */
-    if (log_init() == -1) {
+    if (log_open_writer() == -1) {
         fprintf(stderr, "Initialization error: Logger failed\n");
     }
-    if (mq_cmd_init() == -1) {
+    if (mq_cmd_open_receiver() == -1) {
         fprintf(stderr, "Initialization error: Message Queue failed\n");
     }
     if (shm_state_create() == -1) {
@@ -210,8 +210,9 @@ int main(void) {
     pthread_join(cmd_thread, NULL);
 
     shm_state_unlink();
-    mq_cmd_cleanup();
-    log_cleanup();
+    mq_cmd_close();
+    mq_cmd_unlink();
+    log_close();
 
     printf("Core process exited cleanly.\n");
     return 0;
