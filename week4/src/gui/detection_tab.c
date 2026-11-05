@@ -11,6 +11,10 @@ typedef struct {
     GtkWidget *status_label;
     GtkWidget *log_textview;
     GtkEntry req_entries[MAX_PROC][MAX_RES];
+    GtkWidget *frame_req;
+    GtkWidget *grid_req;
+    int shown_n_proc;
+    int shown_n_res;
 } DetectionTabWidgets;
 
 typedef struct {
@@ -26,6 +30,62 @@ typedef struct {
 
 static void detection_refresh_cb(void *user_data);
 static void recovery_refresh_cb(void *user_data);
+static void rebuild_request_grid(DetectionTabWidgets *w) {
+    SystemState *s = w->state;
+
+    if (s->n_proc < 0 || s->n_proc > MAX_PROC ||
+        s->n_res < 0 || s->n_res > MAX_RES) {
+        return;
+    }
+
+    if (w->grid_req != NULL) {
+        gtk_widget_destroy(w->grid_req);
+        w->grid_req = NULL;
+    }
+
+    memset(w->req_entries, 0, sizeof(w->req_entries));
+
+    w->grid_req = gtk_grid_new();
+    gtk_grid_set_row_spacing(GTK_GRID(w->grid_req), 5);
+    gtk_grid_set_column_spacing(GTK_GRID(w->grid_req), 5);
+    gtk_container_set_border_width(GTK_CONTAINER(w->grid_req), 8);
+
+    for (int j = 0; j < s->n_res; j++) {
+        char name[8];
+        state_res_name(j, name);
+        gtk_grid_attach(GTK_GRID(w->grid_req),
+                        gtk_label_new(name), j + 1, 0, 1, 1);
+    }
+
+    for (int i = 0; i < s->n_proc; i++) {
+        char name[8];
+        state_proc_name(i, name);
+
+        gtk_grid_attach(GTK_GRID(w->grid_req),
+                        gtk_label_new(name), 0, i + 1, 1, 1);
+
+        for (int j = 0; j < s->n_res; j++) {
+            GtkWidget *entry = gtk_entry_new();
+            char value[16];
+
+            snprintf(value, sizeof(value), "%d", s->requests[i][j]);
+            gtk_entry_set_text(GTK_ENTRY(entry), value);
+            gtk_widget_set_size_request(entry, 60, -1);
+
+            w->req_entries[i][j] = entry;
+
+            gtk_grid_attach(GTK_GRID(w->grid_req),
+                            entry, j + 1, i + 1, 1, 1);
+        }
+    }
+
+    gtk_container_add(GTK_CONTAINER(w->frame_req), w->grid_req);
+
+    w->shown_n_proc = s->n_proc;
+    w->shown_n_res = s->n_res;
+
+    gtk_widget_show_all(w->frame_req);
+}
 
 static void on_save_requests(GtkButton *btn, gpointer user_data) {
     DetectionTabWidgets *w = (DetectionTabWidgets *)user_data;
@@ -33,10 +93,10 @@ static void on_save_requests(GtkButton *btn, gpointer user_data) {
 
     for (int i = 0; i < s->n_proc; i++) {
         for (int j = 0; j < s->n_res; j++) {
-            const gchar *text = gtk_entry_get_text(GTK_ENTRY(&w->req_entries[i][j]));
+            const gchar *text = gtk_entry_get_text(GTK_ENTRY(w->req_entries[i][j]));
             char *endptr;
             long val = strtol(text, &endptr, 10);
-            if (*endptr != '\0' || val < 0) {
+            if (*text == '\0' || *endptr != '\0' || val < 0 || val > 2147483647L) {
                 GtkWidget *dialog = gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
                     "Invalid input at Request P%d, R%d: must be a non-negative integer.", i, j);
                 gtk_dialog_run(GTK_DIALOG(dialog));
@@ -112,11 +172,28 @@ static void on_detect_clicked(GtkButton *btn, gpointer user_data) {
 static void detection_refresh_cb(void *user_data) {
     DetectionTabWidgets *w = (DetectionTabWidgets *)user_data;
     SystemState *s = w->state;
+
+    if (s->n_proc < 0 || s->n_proc > MAX_PROC ||
+        s->n_res < 0 || s->n_res > MAX_RES) {
+        return;
+    }
+
+    if (w->shown_n_proc != s->n_proc ||
+        w->shown_n_res != s->n_res ||
+        w->grid_req == NULL) {
+        rebuild_request_grid(w);
+        return;
+    }
+
     for (int i = 0; i < s->n_proc; i++) {
         for (int j = 0; j < s->n_res; j++) {
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%d", s->requests[i][j]);
-            gtk_entry_set_text(GTK_ENTRY(&w->req_entries[i][j]), buf);
+            char value[16];
+            snprintf(value, sizeof(value), "%d", s->requests[i][j]);
+
+            if (w->req_entries[i][j] != NULL) {
+                gtk_entry_set_text(
+                    GTK_ENTRY(w->req_entries[i][j]), value);
+            }
         }
     }
 }
