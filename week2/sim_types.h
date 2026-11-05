@@ -19,6 +19,8 @@ enum sim_cmd_type {
     CMD_START = 1, CMD_PAUSE = 2, CMD_RESUME = 3, CMD_STEP = 4,
     CMD_ADD_PROCESS = 5, CMD_RESET = 6, CMD_QUIT = 7
 };
+#define CMD_TYPE_MIN CMD_START
+#define CMD_TYPE_MAX CMD_QUIT
 
 struct sim_cmd {
     int      type;      /* enum sim_cmd_type */
