@@ -423,7 +423,3 @@ static int send_command(int type, int arg)
 
 /* ---------- main ---------- */
 
-static void ui_shutdown(void)
-{
-    g_stop = 1;
-}
