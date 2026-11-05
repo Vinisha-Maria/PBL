@@ -221,33 +221,13 @@ GtkWidget *detection_tab_new(SystemState *state) {
     w->status_label = gtk_label_new("Click 'Detect Deadlock' to analyze.");
     gtk_box_pack_start(GTK_BOX(vbox), w->status_label, FALSE, FALSE, 0);
 
-    GtkWidget *frame_req = gtk_frame_new("Resource Requests Matrix");
-    GtkWidget *grid_req = gtk_grid_new();
-    gtk_grid_set_row_spacing(GTK_GRID(grid_req), 5);
-    gtk_grid_set_column_spacing(GTK_GRID(grid_req), 5);
-    gtk_container_set_border_width(GTK_CONTAINER(grid_req), 8);
-
-    for (int j = 0; j < state->n_res; j++) {
-        char r_name[8];
-        state_res_name(j, r_name);
-        gtk_grid_attach(GTK_GRID(grid_req), gtk_label_new(r_name), j + 1, 0, 1, 1);
-    }
-    for (int i = 0; i < state->n_proc; i++) {
-        char p_name[8];
-        state_proc_name(i, p_name);
-        gtk_grid_attach(GTK_GRID(grid_req), gtk_label_new(p_name), 0, i + 1, 1, 1);
-
-        for (int j = 0; j < state->n_res; j++) {
-            w->req_entries[i][j] = *GTK_ENTRY(gtk_entry_new());
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%d", state->requests[i][j]);
-            gtk_entry_set_text(&w->req_entries[i][j], buf);
-            gtk_widget_set_size_request(GTK_WIDGET(&w->req_entries[i][j]), 50, -1);
-            gtk_grid_attach(GTK_GRID(grid_req), GTK_WIDGET(&w->req_entries[i][j]), j + 1, i + 1, 1, 1);
-        }
-    }
-    gtk_container_add(GTK_CONTAINER(frame_req), grid_req);
-    gtk_box_pack_start(GTK_BOX(vbox), frame_req, FALSE, FALSE, 0);
+    w->frame_req = gtk_frame_new("Resource Requests Matrix");
+    w->shown_n_proc = -1;
+    w->shown_n_res = -1;
+        
+    rebuild_request_grid(w);
+        
+    gtk_box_pack_start(GTK_BOX(vbox), w->frame_req, FALSE, FALSE, 0);
 
     GtkWidget *hbox_btns = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     GtkWidget *btn_save = gtk_button_new_with_label("Save Requests");
