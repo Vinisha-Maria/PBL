@@ -1,77 +1,85 @@
+/* Small test program for algorithms.c
+ * Prints the step table for test case 1 and the hits/faults of all totals. */
+
+#include <stdio.h>
+#include <stdlib.h>
 #include "common.h"
 
-/* Strategy identifier for the shared simulation engine */
-typedef enum {
-    STRAT_FIFO,
-    STRAT_LRU,
-    STRAT_OPTIMAL
-} strat_t;
+typedef void (*algo_fn)(const int *, int, int, step_t *);
 
-/* Shared core engine that simulates page replacement for FIFO, LRU, and Optimal */
-static void run_simulation(const int *pages, int n, int frames_count, strat_t strat, step_t *steps) {
-    int frame_contents[MAX_FRAMES];
-    int load_time[MAX_FRAMES];
-    int last_used_time[MAX_FRAMES];
+/* Print the step table of one algorithm. */
+static void print_table(const char *name, algo_fn fn,
+                        const int *pages, int n, int frames)
+{
+    step_t steps[MAX_PAGES];
+    fn(pages, n, frames, steps);
 
-    // Initialize all frames and tracking metadata as empty (-1)
-    for (int i = 0; i < MAX_FRAMES; i++) {
-        frame_contents[i] = EMPTY;
-        load_time[i] = -1;
-        last_used_time[i] = -1;
-    }
-
+    printf("%s\n", name);
     for (int i = 0; i < n; i++) {
-        int page = pages[i];
-        int hit = 0;
-        int hit_idx = -1;
-
-        // 1. Check if the requested page is already in memory (Hit check)
-        for (int f = 0; f < frames_count; f++) {
-            if (frame_contents[f] == page) {
-                hit = 1;
-                hit_idx = f;
-                break;
-            }
+        printf("%d | ", steps[i].page);
+        for (int f = 0; f < frames; f++) {
+            if (steps[i].frames[f] == EMPTY) printf("- ");
+            else                              printf("%d ", steps[i].frames[f]);
         }
+        printf("| %-5s | ", steps[i].hit ? "Hit" : "Fault");
+        if (steps[i].replaced == EMPTY) printf("-\n");
+        else                            printf("%d\n", steps[i].replaced);
+    }
+}
 
-        int replaced = EMPTY;
+/* Count hits for one algorithm run. */
+static int count_hits(algo_fn fn, const int *pages, int n, int frames)
+{
+    step_t steps[MAX_PAGES];
+    int hits = 0;
+    fn(pages, n, frames, steps);
+    for (int i = 0; i < n; i++)
+        hits += steps[i].hit;
+    return hits;
+}
 
-        if (hit) {
-            // On a hit, update last-used time for LRU (FIFO and Optimal do not change order on hit)
-            last_used_time[hit_idx] = i;
-        } else {
-            // Fault: check for any empty frame first (lowest-numbered empty frame)
-            int empty_idx = -1;
-            for (int f = 0; f < frames_count; f++) {
-                if (frame_contents[f] == EMPTY) {
-                    empty_idx = f;
-                    break;
-                }
-            }
+/* Run all three algorithms and compare with the expected hits. */
+static int check(const char *label, const int *pages, int n, int frames,
+                 const int exp_hits[3])
+{
+    algo_fn fns[3] = { fifo, lru, optimal };
+    int ok = 1;
 
-            int victim_idx = -1;
-            if (empty_idx != -1) {
-                victim_idx = empty_idx;
-            } else {
-                // All frames are full; select a victim based on the algorithm strategy
-                if (strat == STRAT_FIFO) {
-                    int min_load = i + 1;
-                    for (int f = 0; f < frames_count; f++) {
-                        if (load_time[f] < min_load) {
-                            min_load = load_time[f];
-                            victim_idx = f;
-                        }
-                    }
-                } else if (strat == STRAT_LRU) {
-                    int min_used = i + 1;
-                    for (int f = 0; f < frames_count; f++) {
-                        if (last_used_time[f] < min_used) {
-                            min_used = last_used_time[f];
-                            victim_idx = f;
-                        }
-                    }
-                } else if (strat == STRAT_OPTIMAL) {
-                    int farthest_use = -1;
-                    int earliest_load = i + 1;
+    printf("%s (%d frames)\n", label, frames);
+    for (int a = 0; a < 3; a++) {
+        int h = count_hits(fns[a], pages, n, frames);
+        int pass = (h == exp_hits[a]);
+        printf("  %-8s hits/faults = %d / %d   expected %d / %d   %s\n",
+               ALGO_NAMES[a], h, n - h, exp_hits[a], n - exp_hits[a],
+               pass ? "OK" : "WRONG");
+        if (!pass) ok = 0;
+    }
+    return ok;
+}
 
-                    for (int f = 0; f < frames_count; f++)
+int main(void)
+{
+    int p1[] = {7, 0, 1, 2, 0, 3, 0, 4, 2, 3};
+    int p2[] = {7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1};
+    int p3[] = {1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5};
+    int e1[3] = {1, 2, 4};
+    int e2[3] = {5, 8, 11};
+    int e3a[3] = {3, 2, 5};
+    int e3b[3] = {2, 4, 6};
+    int all_ok = 1;
+
+    /* Step tables for the first example. */
+    print_table("FIFO",    fifo,    p1, 10, 3);
+    print_table("LRU",     lru,     p1, 10, 3);
+    print_table("Optimal", optimal, p1, 10, 3);
+    printf("\n");
+
+    /* Totals. */
+    all_ok &= check("Test 1", p1, 10, 3, e1);
+    all_ok &= check("Test 2", p2, 20, 3, e2);
+    all_ok &= check("Test 3", p3, 12, 3, e3a);
+    all_ok &= check("Test 3", p3, 12, 4, e3b);
+
+    printf("\n%s\n", all_ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED");
+    return all_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+}
