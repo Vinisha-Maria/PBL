@@ -169,7 +169,7 @@ int main(void) {
 
     /* Setup signal handling */
     struct sigaction sa;
-    sa.handler = handle_sigint;
+    sa.sa_handler = handle_sigint;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     sigaction(SIGINT, &sa, NULL);
