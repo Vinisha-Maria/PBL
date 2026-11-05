@@ -42,7 +42,7 @@ int shm_state_create(void) {
         return -1;
     }
 
-    state_sem = sem_open(SEM_NAME, O_CREAT | O_RDWR, 0666, 1);
+    state_sem = sem_open(SEM_NAME, O_CREAT, 0666, 1);
     if (state_sem == SEM_FAILED) {
         perror("shm_state_create: sem_open");
         munmap(shared_state_ptr, sizeof(struct sim_state));
@@ -71,7 +71,7 @@ int shm_state_open(void) {
         return -1;
     }
 
-    state_sem = sem_open(SEM_NAME, O_RDWR, 0666);
+    state_sem = sem_open(SEM_NAME, 0);
     if (state_sem == SEM_FAILED) {
         perror("shm_state_open: sem_open");
         munmap(shared_state_ptr, sizeof(struct sim_state));
