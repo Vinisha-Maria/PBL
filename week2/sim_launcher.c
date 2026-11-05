@@ -75,7 +75,12 @@ static int start_proc(int i)
     pid_t pid = fork();
     if (pid < 0) { perror("[launcher] fork"); return -1; }
     if (pid == 0) {
-        execl(path, procs[i].binary, (char *)NULL);
+        if (i == 0) {
+    /* Logger needs the control socket enabled. */
+    execl(path, procs[i].binary, "--ctrl", (char *)NULL);
+} else {
+    execl(path, procs[i].binary, (char *)NULL);
+}
         fprintf(stderr, "[launcher] exec %s failed: %s\n", path, strerror(errno));
         _exit(127);
     }
