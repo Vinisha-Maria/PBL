@@ -93,7 +93,9 @@ static void on_save_requests(GtkButton *btn, gpointer user_data) {
 
     for (int i = 0; i < s->n_proc; i++) {
         for (int j = 0; j < s->n_res; j++) {
-            const gchar *text = gtk_entry_get_text(GTK_ENTRY(w->req_entries[i][j]));
+            const gchar *text = 
+        
+        gtk_entry_get_text(GTK_ENTRY(w->req_entries[i][j]));
             char *endptr;
             long val = strtol(text, &endptr, 10);
             if (*text == '\0' || *endptr != '\0' || val < 0 || val > 2147483647L) {
@@ -269,7 +271,7 @@ static void on_recover_clicked(GtkButton *btn, gpointer user_data) {
     } else if (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(w->radio_term_one))) {
         res = recover_terminate_one_by_one(s);
     } else {
-        const char *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(w->combo_victim));
+        gchar *active_id = gtk_combo_box_get_active_id(GTK_COMBO_BOX(w->combo_victim));
         int victim = active_id ? atoi(active_id) : 0;
         if (active_id) g_free(active_id);
         res = recover_preempt(s, victim);
