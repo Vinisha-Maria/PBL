@@ -116,21 +116,21 @@ void *command_thread_func(void *arg) {
 
         pthread_mutex_lock(&sim_mutex);
         switch (cmd.type) {
-            case START:
+            case CMD_START:
                 current_state.status = 1;
                 log_write("INFO", "CMD", "Command received: START");
                 pthread_cond_signal(&sim_cond);
                 break;
-            case PAUSE:
+            case CMD_PAUSE:
                 current_state.status = 2;
                 log_write("INFO", "CMD", "Command received: PAUSE");
                 break;
-            case RESUME:
+            case CMD_RESUME:
                 current_state.status = 1;
                 log_write("INFO", "CMD", "Command received: RESUME");
                 pthread_cond_signal(&sim_cond);
                 break;
-            case STEP:
+            case CMD_STEP:
                 current_state.status = 1;
                 log_write("INFO", "CMD", "Command received: STEP");
                 pthread_cond_signal(&sim_cond);
@@ -138,17 +138,17 @@ void *command_thread_func(void *arg) {
                 usleep(50000);
                 current_state.status = 2;
                 break;
-            case ADD_PROCESS:
+            case CMD_ADD_PROCESS:
                 current_state.running_pid = cmd.arg;
                 log_write("INFO", "CMD", "Command received: ADD_PROCESS");
                 break;
-            case RESET:
+            case CMD_RESET:
                 current_state.tick = 0;
                 current_state.queue_len = 0;
                 current_state.stack_depth = 0;
                 log_write("INFO", "CMD", "Command received: RESET");
                 break;
-            case QUIT:
+            case CMD_QUIT:
                 keep_running = 0;
                 log_write("INFO", "CMD", "Command received: QUIT");
                 pthread_cond_broadcast(&sim_cond);
