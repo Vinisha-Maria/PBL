@@ -36,7 +36,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "sim_common.h"
+#include "sim_types.h"
 #include "ipc_mq.h"
 #include "ipc_shm.h"
 
