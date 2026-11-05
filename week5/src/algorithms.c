@@ -1,85 +1,169 @@
-/* Small test program for algorithms.c
- * Prints the step table for test case 1 and the hits/faults of all totals. */
+/*
+ * algorithms.c - FIFO, LRU and Optimal page replacement.
+ *
+ * Each public function simulates one algorithm and writes one step_t
+ * per page request into steps[0..n-1].
+ *
+ * The three algorithms share one helper (simulate). The only difference
+ * between them is how the victim frame is chosen, so each algorithm
+ * supplies a small "choose victim" function.
+ *
+ * No global or static variables are used, so every call gives the same
+ * answer, also when called in separate worker processes.
+ */
 
-#include <stdio.h>
-#include <stdlib.h>
 #include "common.h"
 
-typedef void (*algo_fn)(const int *, int, int, step_t *);
+/* A function that picks the frame position to replace.
+ *   pages     : all page requests
+ *   n         : number of page requests
+ *   now       : index of the current request in pages[]
+ *   frames    : number of frames in use
+ *   frame     : current page in each frame position (all are full here)
+ *   load_time : request index at which each frame's page was loaded
+ *   last_used : request index at which each frame's page was last used
+ * It returns the position (0..frames-1) of the victim.                  */
+typedef int (*victim_fn)(const int *pages, int n, int now, int frames,
+                         const int *frame, const int *load_time,
+                         const int *last_used);
 
-/* Print the step table of one algorithm. */
-static void print_table(const char *name, algo_fn fn,
-                        const int *pages, int n, int frames)
+/* FIFO: victim is the frame with the smallest load time. */
+static int victim_fifo(const int *pages, int n, int now, int frames,
+                       const int *frame, const int *load_time,
+                       const int *last_used)
 {
-    step_t steps[MAX_PAGES];
-    fn(pages, n, frames, steps);
+    int best = 0;
+    (void)pages; (void)n; (void)now; (void)frame; (void)last_used;
 
-    printf("%s\n", name);
-    for (int i = 0; i < n; i++) {
-        printf("%d | ", steps[i].page);
-        for (int f = 0; f < frames; f++) {
-            if (steps[i].frames[f] == EMPTY) printf("- ");
-            else                              printf("%d ", steps[i].frames[f]);
+    for (int f = 1; f < frames; f++) {
+        if (load_time[f] < load_time[best])
+            best = f;
+    }
+    return best;
+}
+
+/* LRU: victim is the frame with the smallest last-used time. */
+static int victim_lru(const int *pages, int n, int now, int frames,
+                      const int *frame, const int *load_time,
+                      const int *last_used)
+{
+    int best = 0;
+    (void)pages; (void)n; (void)now; (void)frame; (void)load_time;
+
+    for (int f = 1; f < frames; f++) {
+        if (last_used[f] < last_used[best])
+            best = f;
+    }
+    return best;
+}
+
+/* Find the index of the next use of 'page' after position 'now'.
+ * If the page is never used again, return n (larger than any index). */
+static int next_use(const int *pages, int n, int now, int page)
+{
+    for (int j = now + 1; j < n; j++) {
+        if (pages[j] == page)
+            return j;
+    }
+    return n;
+}
+
+/* Optimal: victim is the frame whose page is used farthest in the future.
+ * On a tie, the page that was loaded earliest is the victim. */
+static int victim_optimal(const int *pages, int n, int now, int frames,
+                          const int *frame, const int *load_time,
+                          const int *last_used)
+{
+    int best = 0;
+    int best_next = next_use(pages, n, now, frame[0]);
+    (void)last_used;
+
+    for (int f = 1; f < frames; f++) {
+        int nu = next_use(pages, n, now, frame[f]);
+        if (nu > best_next || (nu == best_next && load_time[f] < load_time[best])) {
+            best = f;
+            best_next = nu;
         }
-        printf("| %-5s | ", steps[i].hit ? "Hit" : "Fault");
-        if (steps[i].replaced == EMPTY) printf("-\n");
-        else                            printf("%d\n", steps[i].replaced);
+    }
+    return best;
+}
+
+/* Common part of all three algorithms: hit check, empty frame search,
+ * replacement at the victim's position, and filling each step. */
+static void simulate(const int *pages, int n, int frames, step_t *steps,
+                     victim_fn choose)
+{
+    int frame[MAX_FRAMES];       /* page in each frame, or EMPTY */
+    int load_time[MAX_FRAMES];   /* when the page was loaded */
+    int last_used[MAX_FRAMES];   /* when the page was last used */
+
+    for (int f = 0; f < MAX_FRAMES; f++) {
+        frame[f] = EMPTY;
+        load_time[f] = 0;
+        last_used[f] = 0;
+    }
+
+    for (int i = 0; i < n; i++) {
+        int page = pages[i];
+        int hit_pos = EMPTY;
+        int replaced = EMPTY;
+
+        /* 1. Is the page already in a frame? */
+        for (int f = 0; f < frames; f++) {
+            if (frame[f] == page) {
+                hit_pos = f;
+                break;
+            }
+        }
+
+        if (hit_pos != EMPTY) {
+            /* Hit: only the last-used time changes (load time stays). */
+            last_used[hit_pos] = i;
+        } else {
+            /* 2. Fault: look for the lowest-numbered empty frame. */
+            int pos = EMPTY;
+            for (int f = 0; f < frames; f++) {
+                if (frame[f] == EMPTY) {
+                    pos = f;
+                    break;
+                }
+            }
+
+            /* 3. No empty frame: choose a victim and remember its page. */
+            if (pos == EMPTY) {
+                pos = choose(pages, n, i, frames, frame, load_time, last_used);
+                replaced = frame[pos];
+            }
+
+            /* Put the new page into that position. */
+            frame[pos] = page;
+            load_time[pos] = i;
+            last_used[pos] = i;
+        }
+
+        /* 4. Fill the step. Unused frame entries stay EMPTY. */
+        steps[i].page = page;
+        for (int f = 0; f < MAX_FRAMES; f++)
+            steps[i].frames[f] = (f < frames) ? frame[f] : EMPTY;
+        steps[i].hit = (hit_pos != EMPTY) ? 1 : 0;
+        steps[i].replaced = replaced;
     }
 }
 
-/* Count hits for one algorithm run. */
-static int count_hits(algo_fn fn, const int *pages, int n, int frames)
+/* FIFO: replace the page that has been in memory the longest. */
+void fifo(const int *pages, int n, int frames, step_t *steps)
 {
-    step_t steps[MAX_PAGES];
-    int hits = 0;
-    fn(pages, n, frames, steps);
-    for (int i = 0; i < n; i++)
-        hits += steps[i].hit;
-    return hits;
+    simulate(pages, n, frames, steps, victim_fifo);
 }
 
-/* Run all three algorithms and compare with the expected hits. */
-static int check(const char *label, const int *pages, int n, int frames,
-                 const int exp_hits[3])
+/* LRU: replace the page that was used longest ago. */
+void lru(const int *pages, int n, int frames, step_t *steps)
 {
-    algo_fn fns[3] = { fifo, lru, optimal };
-    int ok = 1;
-
-    printf("%s (%d frames)\n", label, frames);
-    for (int a = 0; a < 3; a++) {
-        int h = count_hits(fns[a], pages, n, frames);
-        int pass = (h == exp_hits[a]);
-        printf("  %-8s hits/faults = %d / %d   expected %d / %d   %s\n",
-               ALGO_NAMES[a], h, n - h, exp_hits[a], n - exp_hits[a],
-               pass ? "OK" : "WRONG");
-        if (!pass) ok = 0;
-    }
-    return ok;
+    simulate(pages, n, frames, steps, victim_lru);
 }
 
-int main(void)
+/* Optimal: replace the page that will not be used for the longest time. */
+void optimal(const int *pages, int n, int frames, step_t *steps)
 {
-    int p1[] = {7, 0, 1, 2, 0, 3, 0, 4, 2, 3};
-    int p2[] = {7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1};
-    int p3[] = {1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5};
-    int e1[3] = {1, 2, 4};
-    int e2[3] = {5, 8, 11};
-    int e3a[3] = {3, 2, 5};
-    int e3b[3] = {2, 4, 6};
-    int all_ok = 1;
-
-    /* Step tables for the first example. */
-    print_table("FIFO",    fifo,    p1, 10, 3);
-    print_table("LRU",     lru,     p1, 10, 3);
-    print_table("Optimal", optimal, p1, 10, 3);
-    printf("\n");
-
-    /* Totals. */
-    all_ok &= check("Test 1", p1, 10, 3, e1);
-    all_ok &= check("Test 2", p2, 20, 3, e2);
-    all_ok &= check("Test 3", p3, 12, 3, e3a);
-    all_ok &= check("Test 3", p3, 12, 4, e3b);
-
-    printf("\n%s\n", all_ok ? "ALL TESTS PASSED" : "SOME TESTS FAILED");
-    return all_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+    simulate(pages, n, frames, steps, victim_optimal);
 }
