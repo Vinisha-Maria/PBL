@@ -10,7 +10,7 @@ typedef struct {
     GtkWidget *banner;
     GtkWidget *status_label;
     GtkWidget *log_textview;
-    GtkEntry req_entries[MAX_PROC][MAX_RES];
+    GtkWidget req_entries[MAX_PROC][MAX_RES];
     GtkWidget *frame_req;
     GtkWidget *grid_req;
     int shown_n_proc;
