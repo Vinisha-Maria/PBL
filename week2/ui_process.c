@@ -40,6 +40,20 @@
 #include "ipc_mq.h"
 #include "ipc_shm.h"
 
+static const char *cmd_name(int type)
+{
+    switch (type) {
+        case CMD_START:      return "START";
+        case CMD_PAUSE:      return "PAUSE";
+        case CMD_RESUME:     return "RESUME";
+        case CMD_STEP:       return "STEP";
+        case CMD_ADD_PROCESS:return "ADD_PROCESS";
+        case CMD_RESET:      return "RESET";
+        case CMD_QUIT:       return "QUIT";
+        default:             return "UNKNOWN";
+    }
+}
+
 #define REFRESH_MS      500     /* how often the state is read */
 #define SLICE_MS        50      /* the thread sleeps in small slices to stop fast */
 #define INPUT_POLL_MS   200     /* how often the input loop checks for a stop */
