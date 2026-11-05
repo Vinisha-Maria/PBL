@@ -12,7 +12,7 @@
 #ifndef IPC_MQ_H
 #define IPC_MQ_H
 
-#include "sim_common.h"
+#include "sim_types.h"
 
 #define MQ_CMD_NAME     "/sim_cmd"
 
