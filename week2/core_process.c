@@ -10,6 +10,7 @@
 #include "ipc_shm.h"
 #include "ipc_mq.h"
 #include "ipc_fifo.h"
+#include "ipc_sock.h"
 
 /* Simulator state and synchronization globals */
 static struct sim_state current_state;
@@ -163,6 +164,10 @@ void *command_thread_func(void *arg) {
     log_write("INFO", "CORE", "Command thread exiting");
     return NULL;
 }
+static void core_shutdown(void)
+{
+    keep_running = 0;
+}
 
 int main(void) {
     pthread_t exec_thread, cmd_thread;
@@ -196,6 +201,34 @@ int main(void) {
     pthread_create(&exec_thread, NULL, execution_thread_func, NULL);
     pthread_create(&cmd_thread, NULL, command_thread_func, NULL);
 
+    /* Connect to launcher and register Core as ready. */
+    int ctrl_fd = sock_ctrl_client_connect("core");
+    if (ctrl_fd < 0) {
+        perror("Core control connection failed");
+        keep_running = 0;
+        pthread_join(exec_thread, NULL);
+        pthread_join(cmd_thread, NULL);
+        shm_state_unlink();
+        mq_cmd_close();
+        mq_cmd_unlink();
+        log_close();
+        return EXIT_FAILURE;
+    }
+
+    if (sock_ctrl_send(ctrl_fd, "READY") < 0 ||
+        sock_ctrl_start_responder(ctrl_fd, core_shutdown) < 0) {
+        perror("Core control responder failed");
+        sock_ctrl_close(ctrl_fd);
+        keep_running = 0;
+        pthread_join(exec_thread, NULL);
+        pthread_join(cmd_thread, NULL);
+        shm_state_unlink();
+        mq_cmd_close();
+        mq_cmd_unlink();
+        log_close();
+        return EXIT_FAILURE;
+    }
+    
     log_write("INFO", "CORE", "Core process fully initialized and running");
 
     /* Main thread waits for shutdown signal */
@@ -214,6 +247,8 @@ int main(void) {
     mq_cmd_unlink();
     log_close();
 
+    sock_ctrl_close(ctrl_fd);
+    
     printf("Core process exited cleanly.\n");
     return 0;
 }
