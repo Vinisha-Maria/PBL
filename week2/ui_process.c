@@ -39,6 +39,7 @@
 #include "sim_types.h"
 #include "ipc_mq.h"
 #include "ipc_shm.h"
+#include "ipc_sock.h"
 
 static const char *cmd_name(int type)
 {
@@ -77,6 +78,10 @@ struct ui_shared {
 static struct ui_shared g_ui = { .lock = PTHREAD_MUTEX_INITIALIZER };
 
 static volatile sig_atomic_t g_stop = 0;    /* set by signal handler / QUIT */
+static void ui_shutdown(void)
+{
+    g_stop = 1;
+}
 static int      g_tty = 0;                  /* 1 if stdout is a terminal */
 static int      g_mq_open = 0;              /* main thread only */
 static unsigned g_seq = 0;                  /* main thread only */
@@ -418,64 +423,7 @@ static int send_command(int type, int arg)
 
 /* ---------- main ---------- */
 
-int main(void)
+static void ui_shutdown(void)
 {
-    pthread_t tid;
-    char line[64];
-    int rc;
-
-    install_signals();
-    setvbuf(stdin, NULL, _IONBF, 0);    /* so poll() and fgets() agree */
-    g_tty = isatty(STDOUT_FILENO);
-
-    snprintf(g_ui.message, sizeof g_ui.message, "Ready.");
-    if (g_tty)
-        fputs("\033[2J\033[H", stdout); /* clear screen */
-
-    rc = pthread_create(&tid, NULL, state_thread, NULL);
-    if (rc != 0) {
-        fprintf(stderr, "pthread_create: %s\n", strerror(rc));
-        return 1;
-    }
-
-    draw_menu();
-
-    while (!g_stop) {
-        int choice, arg = 0;
-
-        prompt(PROMPT_ROW, "Choice (1-7): ");
-        rc = read_line(line, sizeof line);
-        if (rc <= 0)
-            break;
-        if (parse_int(line, &choice) != 0 || choice < CMD_TYPE_MIN || choice > CMD_TYPE_MAX) {
-            set_message("Invalid choice: type a number from 1 to 7.");
-            continue;
-        }
-
-        if (choice == CMD_ADD_PROCESS) {
-            prompt(PROMPT_ROW + 1, "Argument for the new process (integer): ");
-            rc = read_line(line, sizeof line);
-            if (rc <= 0)
-                break;
-            if (parse_int(line, &arg) != 0) {
-                set_message("Invalid argument: please type an integer.");
-                continue;
-            }
-        }
-
-        send_command(choice, arg);
-
-        if (choice == CMD_QUIT)         /* QUIT: the UI also ends */
-            break;
-    }
-
-    /* Cleanup (same path for QUIT, Ctrl-D, SIGINT and SIGTERM). */
     g_stop = 1;
-    pthread_join(tid, NULL);
-    if (mq_cmd_close() != 0)
-        perror("mq_cmd_close");
-    if (g_tty)
-        printf("\033[%d;1H\033[J", PROMPT_ROW);
-    ui_print("UI closed.\n");
-    return 0;
 }
