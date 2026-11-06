@@ -423,3 +423,107 @@ static int send_command(int type, int arg)
 
 /* ---------- main ---------- */
 
+int main(void)
+{
+    pthread_t tid;
+    char line[64];
+    int rc;
+    int ctrl_fd = -1;
+
+    /* Setup signal handling */
+    install_signals();
+    signal(SIGPIPE, SIG_IGN);
+
+    setvbuf(stdin, NULL, _IONBF, 0);
+    g_tty = isatty(STDOUT_FILENO);
+
+    snprintf(g_ui.message, sizeof g_ui.message, "Ready.");
+
+    if (g_tty)
+        fputs("\033[2J\033[H", stdout);
+
+    /* Connect UI to the launcher control socket */
+    ctrl_fd = sock_ctrl_client_connect("ui");
+    if (ctrl_fd < 0) {
+        perror("UI control connection failed");
+        return 1;
+    }
+
+    /* Register UI as ready */
+    if (sock_ctrl_send(ctrl_fd, "READY") < 0 ||
+        sock_ctrl_start_responder(ctrl_fd, ui_shutdown) < 0) {
+        perror("UI control responder failed");
+        sock_ctrl_close(ctrl_fd);
+        return 1;
+    }
+
+    /* Start background state-monitoring thread */
+    rc = pthread_create(&tid, NULL, state_thread, NULL);
+    if (rc != 0) {
+        fprintf(stderr, "pthread_create: %s\n", strerror(rc));
+        sock_ctrl_close(ctrl_fd);
+        return 1;
+    }
+
+    draw_menu();
+
+    /* Main input loop */
+    while (!g_stop) {
+        int choice, arg = 0;
+
+        prompt(PROMPT_ROW, "Choice (1-7): ");
+
+        rc = read_line(line, sizeof line);
+
+        if (rc <= 0)
+            break;
+
+        if (parse_int(line, &choice) != 0 ||
+            choice < CMD_TYPE_MIN ||
+            choice > CMD_TYPE_MAX) {
+            set_message("Invalid choice: type a number from 1 to 7.");
+            continue;
+        }
+
+        /* ADD_PROCESS requires an integer argument */
+        if (choice == CMD_ADD_PROCESS) {
+            prompt(PROMPT_ROW + 1,
+                   "Argument for the new process (integer): ");
+
+            rc = read_line(line, sizeof line);
+
+            if (rc <= 0)
+                break;
+
+            if (parse_int(line, &arg) != 0) {
+                set_message("Invalid argument: please type an integer.");
+                continue;
+            }
+        }
+
+        /* Send command to Core using message queue */
+        send_command(choice, arg);
+
+        if (choice == CMD_QUIT)
+            break;
+    }
+
+    /* Graceful cleanup */
+    g_stop = 1;
+
+    pthread_join(tid, NULL);
+
+    if (mq_cmd_close() != 0)
+        perror("mq_cmd_close");
+
+    g_mq_open = 0;
+
+    if (g_tty)
+        printf("\033[%d;1H\033[J", PROMPT_ROW);
+
+    ui_print("UI closed.\n");
+
+    sock_ctrl_close(ctrl_fd);
+
+    return 0;
+}
